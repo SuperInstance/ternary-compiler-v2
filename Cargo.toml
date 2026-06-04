@@ -1,0 +1,6 @@
+[package]
+name = "ternary-compiler-v2"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Advanced ternary compilation pipeline with IR, register allocation, and code generation"
