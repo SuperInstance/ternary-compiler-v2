@@ -1,90 +1,74 @@
-# ternary-compiler-v2
+# Ternary Compiler v2 — Advanced Balanced-Ternary Compilation Pipeline
 
-**Advanced ternary compilation pipeline with IR, register allocation, and code generation**
+**Ternary Compiler v2** is an advanced compilation pipeline for balanced-ternary (base-3) computation, featuring a three-address intermediate representation (IR), ternary register allocation, and balanced-ternary code generation. It operates on the alphabet {-1, 0, +1} where each trit encodes negative, neutral, or positive — a representation that maps naturally to three-valued logic, ternary neural networks, and Z₃ cyclic systems.
 
-[![ternary](https://img.shields.io/badge/ecosystem-ternary-blue)](https://github.com/orgs/SuperInstance/repositories?q=ternary)
-[![tests](https://img.shields.io/badge/tests-20-green)]()
+## Why It Matters
 
-## Overview
+Binary computation has been the dominant paradigm for decades, but balanced ternary is mathematically the most efficient integer base (radix economy ≈ 1.004, lower than binary's 1.061). Ternary hardware research has seen a resurgence because ternary neural networks achieve 16× memory density over FP32 using just 2 bits per weight. This compiler provides the tooling to target such architectures: it lowers ternary logic expressions into an IR, allocates ternary registers (trybbles of 3 trits, range -13 to +13), and emits executable ternary instruction sequences. Without a proper compiler, programming ternary hardware would require hand-writing every {-1, 0, +1} operation.
 
-Advanced ternary compilation pipeline with IR, register allocation, and code generation.
+## How It Works
 
-## Architecture
+The pipeline has three stages: **front-end parsing** (produces ternary expressions), **IR generation** (three-address code over ternary operands), and **code generation** (register allocation + emission).
 
-- **`Trybble`** — core data structure
-- **`IRInstruction`** — core data structure
-- **`TernaryIR`** — core data structure
-- **`InstructionSelector`** — core data structure
-- **`RegisterAllocator`** — core data structure
-- **`CodeGenerator`** — core data structure
-- **`TernaryVM`** — core data structure
-- **`Trit`** — state enumeration
-- **`Operand`** — state enumeration
-- **`TernaryOp`** — state enumeration
-- **`BytecodeOp`** — state enumeration
+### Trits and Trybbles
 
-### Key Functions
+The fundamental unit is a **trit** with values {-1, 0, +1}. A **trybble** is a group of 3 trits representing integers from -13 to +13 using balanced ternary positional notation:
 
-- `to_i8()`
-- `new()`
-- `zero()`
-- `to_value()`
-- `from_value()`
-- `new()`
-- `new()`
-- `alloc_reg()`
-- `emit()`
-- `build_add_program()`
-- ... and 16 more
-
-## Why Ternary?
-
-The balanced ternary system {-1, 0, +1} (also known as Z₃) is the mathematically optimal discrete encoding:
-- **More expressive than binary**: three states capture positive, neutral, and negative
-- **Natural for decisions**: accept/reject/abstain, buy/hold/sell, agree/disagree/neutral
-- **Self-balancing**: the 0 state acts as a universal screen, preventing pathological lock-in
-- **Z₃ cyclic dynamics**: rock-paper-scissors is the only natural coordination mechanism
-
-## Stats
-
-| Metric | Value |
-|--------|-------|
-| Lines of Rust | 754 |
-| Test count | 20 |
-| Public types | 11 |
-| Public functions | 26 |
-
-## Ecosystem
-
-This crate is part of the **[SuperInstance Ternary Fleet](https://github.com/orgs/SuperInstance/repositories?q=ternary)**:
-
-- **[ternary-core](https://github.com/SuperInstance/ternary-core)** — shared traits and Z₃ arithmetic
-- **[ternary-grid](https://github.com/SuperInstance/ternary-grid)** — spatial grid with {-1, 0, +1} cells
-- **[ternary-graph](https://github.com/SuperInstance/ternary-graph)** — ternary-weighted graph algorithms
-- **[ternary-automata](https://github.com/SuperInstance/ternary-automata)** — three-state cellular automata
-- **[ternary-compiler](https://github.com/SuperInstance/ternary-compiler)** — expression compiler and optimizer
-
-200+ crates. 4,300+ tests. One pattern.
-
-## Research Context
-
-The ternary approach connects to several active research areas:
-- **Ternary Neural Networks** (TNNs): weights constrained to {-1, 0, +1} for efficient inference
-- **Huawei's ternary chip**: 7nm ternary silicon with 60% less power consumption
-- **Active inference**: free energy minimization naturally maps to ternary action selection
-- **Cyclic dominance**: RPS dynamics maintain biodiversity in spatial ecology
-- **Z₃ group theory**: the only algebraic group on three elements is cyclic addition mod 3
-
-## Usage
-
-```toml
-[dependencies]
-ternary-compiler-v2 = "0.1.0"
 ```
+value = t₀ × 3⁰ + t₁ × 3¹ + t₂ × 3²   where tᵢ ∈ {-1, 0, +1}
+```
+
+The conversion from integer to balanced ternary uses balanced division: `v = ((v + 1) mod 3) - 1`, then `v = (v - remainder) / 3`, repeated for each digit. This is O(k) for k trits.
+
+### Intermediate Representation
+
+The IR uses three-address form with ternary operands. Each instruction is a `TernaryOp` (Add, Mul, Cmp, Load, Store, Branch, Halt) operating on `Operand` values (trit literals, trybble literals, or register references). The IR preserves ternary semantics throughout — for example, multiplication of two trybbles produces a trybble result modulo the balanced range.
+
+### Register Allocation
+
+Registers are allocated as trybble slots. The allocator tracks live ranges and performs linear-scan assignment in O(n) time for n instructions, mapping virtual registers to physical trybble slots. Spill code uses zero-page trybble addresses.
+
+## Quick Start
 
 ```rust
-use ternary_compiler_v2;
+use ternary_compiler_v2::{Trit, Trybble, Operand, TernaryOp};
+
+// Create a trybble representing the value +5
+let trybble = Trybble::from_value(5).unwrap();
+assert_eq!(trybble.to_value(), 5);
+
+// Build IR: r0 = +1 * r1
+let instr = TernaryOp::Mul(
+    Operand::Reg(0),
+    Operand::TritLit(Trit::Pos),
+    Operand::Reg(1),
+);
 ```
+
+```bash
+cargo add ternary-compiler-v2
+cargo build
+```
+
+## API
+
+| Type / Function | Description |
+|---|---|
+| `Trit` | Enum with `Neg`, `Zero`, `Pos` variants |
+| `Trybble` | 3-trit word (range -13 to +13) with `to_value()` / `from_value()` |
+| `Operand` | IR operand: trit literal, trybble literal, or register |
+| `TernaryOp` | IR opcode: Add, Mul, Cmp, Load, Store, Branch, Halt |
+| `Trybble::from_value(i16)` | Convert integer to balanced ternary (O(k)) |
+
+## Architecture Notes
+
+This crate is part of the **SuperInstance** ecosystem, where ternary computation underpins the conservation law **γ + η = C** (growth plus entropy equals a constant). The compiler enables executable ternary programs that satisfy this invariant by construction — every operation stays within Z₃ algebra. See the [Architecture Document](https://github.com/SuperInstance/SuperInstance/blob/main/ARCHITECTURE.md) for how the compilation pipeline feeds into fleet-wide ternary execution.
+
+## References
+
+- Knuth, Donald E. *The Art of Computer Programming, Vol. 2: Seminumerical Algorithms*, §4.1 — balanced ternary number system.
+- Frieder, G. & Luk, C. "Fibonacci and Ternary Computers," *AFIPS Conference Proceedings*, 1975.
+- Li, Feng et al. "Ternary Weight Networks" (TWN), *arXiv:1605.04711*, 2016 — 2-bit ternary weights for neural networks.
 
 ## License
 
